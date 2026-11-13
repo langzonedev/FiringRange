@@ -165,6 +165,43 @@ byId('sound').addEventListener('click', () => {
   if (sound) tone(480, .07, .04);
 });
 
+const rangeImpact = {
+  plate: [[0, .045, 2600, 1.3, .52], [.005, .18, 1200, 11, .8]],
+  glass: [[0, .045, 3900, .7, .65], [.02, .16, 5800, 1.3, .43], [.07, .19, 3400, 2.6, .24]],
+  disc: [[0, .07, 1450, .6, .53], [.019, .12, 670, 1, .32]],
+  pulse: [[0, .10, 580, 1.6, .5], [.025, .17, 1800, 2, .31]],
+  orb: [[0, .085, 1050, .62, .55], [.005, .59, 124, .7, .87], [.055, .42, 340, .7, .57]],
+  rocket: [[0, .04, 1870, .65, .71], [.003, .39, 178, .6, .85],
+    [.02, .29, 430, .6, .64], [.08, .23, 1200, .8, .29]],
+};
+
+function playImpact(kind) {
+  if (!sound || audio?.state !== 'running') return;
+  texture(audio, audio.destination, rangeImpact[kind]);
+}
+
+function texture(context, output, layers) {
+  const now = context.currentTime;
+  for (const [delay, duration, frequency, resonance, level] of layers) {
+    const source = context.createBufferSource();
+    const frames = Math.ceil(context.sampleRate * duration);
+    source.buffer = context.createBuffer(1, frames, context.sampleRate);
+    const data = source.buffer.getChannelData(0);
+    for (let i = 0; i < frames; i++) {
+      const attack = Math.min(1, i / (context.sampleRate * .0015));
+      data[i] = (Math.random() * 2 - 1) * attack * (1 - i / frames) ** 2;
+    }
+    const filter = context.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = frequency;
+    filter.Q.value = resonance;
+    const gain = context.createGain();
+    gain.gain.value = level;
+    source.connect(filter).connect(gain).connect(output);
+    source.start(now + delay);
+  }
+}
+
 function tone(frequency, duration, volume, rise = false) {
   if (!sound) return;
   const Audio = window.AudioContext || window.webkitAudioContext;
@@ -322,14 +359,14 @@ function impact(shot) {
     target.hit = now;
     target.resetAt = now + (target.kind === 'plate' ? .18 : 2);
     pulse(p.x, p.y, target.kind === 'glass' ? '#deffff' : '#ffe6a3', p.radius * 1.5);
-    tone(centre ? 880 : 600, .15, .065, true);
+    playImpact(target.kind);
     points += value;
   }
   if (splash) {
     const lob = Boolean(shot.model.arc);
     const size = splash * (lob ? 1.75 : 2.05);
     rings.push({ x, y, colour: shot.model.ink, size, life: lob ? .66 : .45, burst: lob ? 'orb' : 'spark' });
-    tone(lob ? 185 : 116, lob ? .26 : .18, .085);
+    playImpact(lob ? 'orb' : 'rocket');
     feedback ||= lob ? 'Orb burst' : 'Rocket burst';
   } else if (!points) {
     pulse(x, y, shot.model.ink, 13 * scale);
