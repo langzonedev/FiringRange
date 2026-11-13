@@ -327,7 +327,7 @@ function impact(shot) {
   }
   if (splash) {
     const lob = Boolean(shot.model.arc);
-    const size = splash * (lob ? 1.22 : 1.35);
+    const size = splash * (lob ? 1.75 : 2.05);
     rings.push({ x, y, colour: shot.model.ink, size, life: lob ? .66 : .45, burst: lob ? 'orb' : 'spark' });
     tone(lob ? 185 : 116, lob ? .26 : .18, .085);
     feedback ||= lob ? 'Orb burst' : 'Rocket burst';
