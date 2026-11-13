@@ -8,11 +8,12 @@ const byId = (id) => document.getElementById(id);
 const mutedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const tau = Math.PI * 2;
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+const burstInterval = .075;
 const arsenal = [
-  { name: 'Quartz', family: 'Sidearm', glyph: '◇', profile: 'A single straight pulse', ink: '#ffe5a8', speed: 3.7, gap: .23, pitch: 390, head: 26, shell: 20 },
-  { name: 'Mica', family: 'Burst', glyph: '⋮', profile: 'Three quick pulses in a tight cluster', ink: '#a3efcc', speed: 4.6, gap: .38, pitch: 540, head: 44, shell: 27, burst: 3 },
-  { name: 'Banksia', family: 'Scatter', glyph: '✳', profile: 'Five pulses in a wide fan', ink: '#ffd294', speed: 3.3, gap: .42, pitch: 230, head: 38, shell: 35, scatter: 5 },
-  { name: 'Kestrel', family: 'Precision', glyph: '⊕', profile: 'A pinpoint pulse with a crisp trail', ink: '#d2f5ff', speed: 6.7, gap: .38, pitch: 690, head: 66, shell: 14 },
+  { name: 'Quartz', family: 'Sidearm', glyph: '◇', profile: 'A single straight pulse', ink: '#ffe5a8', speed: 3.7, gap: .23, head: 26, shell: 20 },
+  { name: 'Mica', family: 'Burst', glyph: '⋮', profile: 'Three quick pulses in a tight cluster', ink: '#a3efcc', speed: 4.6, gap: .38, head: 44, shell: 27, burst: 3 },
+  { name: 'Banksia', family: 'Scatter', glyph: '✳', profile: 'Five pulses in a wide fan', ink: '#ffd294', speed: 3.3, gap: .42, head: 38, shell: 35, scatter: 5 },
+  { name: 'Kestrel', family: 'Precision', glyph: '⊕', profile: 'A pinpoint pulse with a crisp trail', ink: '#d2f5ff', speed: 6.7, gap: .38, head: 66, shell: 14 },
   { name: 'Ember', family: 'Rocket', glyph: '➶', profile: 'A slow spark with a circular splash', ink: '#ffc386', speed: 1.75, gap: .67, pitch: 170, head: 49, shell: 40, splash: 39 },
   { name: 'Saltbush', family: 'Lobber', glyph: '◠', profile: 'An arcing orb with a wide landing ripple', ink: '#e9c3ff', speed: 1.5, gap: .7, pitch: 285, head: 34, shell: 31, arc: .24, splash: 55 },
 ];
@@ -175,13 +176,34 @@ const rangeImpact = {
     [.02, .29, 430, .6, .64], [.08, .23, 1200, .8, .29]],
 };
 
+// Each shot layers a short crack, a lower report, and a quiet reflection.
+const rangeShot = {
+  Sidearm: [[0, .027, 2450, .55, .47], [.002, .072, 660, .62, .35], [.038, .093, 1120, .56, .12]],
+  Burst: [[0, .022, 2200, .53, .35], [.002, .052, 760, .62, .26], [.038, .071, 1150, .56, .08]],
+  Scatter: [[0, .038, 1560, .55, .54], [.003, .128, 490, .58, .51], [.052, .152, 900, .58, .15]],
+  Precision: [[0, .024, 3100, .52, .57], [.002, .099, 625, .58, .44], [.056, .14, 1260, .55, .14]],
+};
+
+function playShot(model) {
+  if (!sound) return;
+  if (model.splash) {
+    tone(model.pitch, .24, .075);
+    return;
+  }
+  if (audio?.state === 'suspended') audio.resume().catch(() => {});
+  if (!audio) return;
+  for (let i = 0; i < (model.burst || 1); i++) {
+    texture(audio, audio.destination, rangeShot[model.family], i * burstInterval);
+  }
+}
+
 function playImpact(kind) {
   if (!sound || audio?.state !== 'running') return;
   texture(audio, audio.destination, rangeImpact[kind]);
 }
 
-function texture(context, output, layers) {
-  const now = context.currentTime;
+function texture(context, output, layers, offset = 0) {
+  const now = context.currentTime + offset;
   for (const [delay, duration, frequency, resonance, level] of layers) {
     const source = context.createBufferSource();
     const frames = Math.ceil(context.sampleRate * duration);
@@ -300,7 +322,7 @@ function launch() {
     const offset = i - (count - 1) / 2;
     const spread = model.scatter ? .045 : .009;
     queued.push({
-      at: now + (model.burst ? i * .075 : 0),
+      at: now + (model.burst ? i * burstInterval : 0),
       group,
       model,
       from,
@@ -308,7 +330,7 @@ function launch() {
       y: clamp(aim.y + Math.abs(offset) * (model.scatter ? .017 : .004), .03, .97),
     });
   }
-  tone(model.pitch, model.splash ? .24 : .10, .075);
+  playShot(model);
 }
 
 function position(target) {
