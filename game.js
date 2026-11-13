@@ -114,7 +114,7 @@ function reset() {
   updateProgress();
   clearInput();
   shots.length = queued.length = particles.length = rings.length = scoreLabels.length = 0;
-  targets = setup.map((item) => ({ ...item, hit: -20, resetAt: 0 }));
+  targets = setup.map((item) => ({ ...item, hit: -20, resetAt: 0, scored: false }));
   showScore();
   byId('reset').textContent = attack ? 'Restart run' : 'Reset range';
   byId('result').textContent = '';
@@ -310,8 +310,12 @@ function impact(shot) {
   candidates.sort((first, second) => first.distance - second.distance);
   for (const { target, p } of (splash ? candidates : candidates.slice(0, 1))) {
     const centre = target.kind === 'plate' && Math.hypot(p.x - x, p.y - p.radius * .09 - y) <= p.radius * .31;
-    const value = centre ? 100 : { plate: 25, disc: 65, glass: 40, pulse: 50 }[target.kind];
+    const baseValue = centre ? 100 : { plate: 25, disc: 65, glass: 40, pulse: 50 }[target.kind];
     feedback ||= centre ? 'Bullseye' : { plate: 'Steel', disc: 'Flying disc', glass: 'Glass', pulse: 'Pulse pod' }[target.kind];
+    const repeat = attack && target.scored && target.kind !== 'disc';
+    const value = repeat ? Math.round(baseValue * .4) : baseValue;
+    if (repeat) shot.group.repeat = true;
+    target.scored = true;
     const cleared = targetTypes.size === 4;
     targetTypes.add(target.kind);
     if (!cleared && targetTypes.size === 4) shot.group.clear = true;
@@ -350,6 +354,7 @@ function impact(shot) {
     showScore();
     if (multiplier > 1) result += ' · ×'+multiplier;
     if (bonus) result += ' · Gallery bonus';
+    if (shot.group.repeat) result += ' · Repeat';
     pending = false;
     if (remaining === 0) {
       byId('reset').textContent = 'Play again';

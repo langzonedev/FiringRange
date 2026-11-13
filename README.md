@@ -28,3 +28,5 @@ Choose **Score attack** for an untimed 12-launch run with its own best score.
 Consecutive hits raise the multiplier to ×2, then ×3. A miss resets it.
 Hit all four target types in a run for a one-time 200-point bonus.
 A burst or scatter volley uses one launch.
+Fixed targets give 40% of their usual points after their first hit in a run.
+Moving discs keep their full value.
