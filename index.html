@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#141916">
+  <meta name="description" content="A free-play desert target gallery from Lang Systems Arcade.">
+  <title>Firing Range · Lang Systems Arcade</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./game.js" defer></script>
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <div class="identity">
+        <a href="https://arcade.langsystems.com.au/" class="studio">LANG SYSTEMS <b>ARCADE</b></a>
+        <h1>Firing Range<span>.</span></h1>
+      </div>
+      <div class="actions">
+        <button type="button" id="sound" aria-pressed="false">Sound off</button>
+        <button type="button" id="reset">Reset range</button>
+      </div>
+    </header>
+
+    <section class="game" aria-label="Firing Range game">
+      <div class="stage" id="stage">
+        <canvas id="scene" tabindex="0" aria-label="Range. Use the arrow keys to aim and Space to launch." aria-describedby="controls"></canvas>
+        <div class="scoreboard">
+          <div><span>Score</span><strong id="score">0</strong></div>
+          <div><span>Best</span><strong id="best">0</strong></div>
+        </div>
+        <span class="location">DRY CREEK</span>
+        <output id="result" class="result" aria-live="polite"></output>
+        <button type="button" id="launch" class="launch"><span aria-hidden="true">◎</span> Launch</button>
+      </div>
+
+      <div class="tray">
+        <div class="selection">
+          <span id="category"></span>
+          <strong id="model"></strong>
+        </div>
+        <div class="kit" id="kit" aria-label="Select a launcher"></div>
+      </div>
+    </section>
+    <p id="controls" class="controls">
+      <span class="desktop-controls">Point to aim · Click to launch · Arrow keys and Space also work</span>
+      <span class="touch-controls">Touch or drag to aim · Tap Launch when ready</span>
+      <span id="profile"></span>
+    </p>
+  </main>
+</body>
+</html>
