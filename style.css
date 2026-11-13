@@ -175,3 +175,16 @@ body{background:radial-gradient(ellipse at 50% 0,#35283f,#181524 75%);min-height
 }
 .scope[aria-pressed="true"]{background:#ffe0ae;color:#23182d}
 @media(max-width:660px){.scope{right:9px;bottom:63px}}
+.modes{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.modes button{min-height:40px;border:1px solid #755c78;border-radius:7px;background:#292039;color:#f8e8d3;padding:0 11px;font-size:.78rem;cursor:pointer}
+.modes button[aria-pressed=true]{background:#ffcf94;color:#25182e;border-color:#ffcf94;font-weight:750}
+#challenge{color:#e4cbb5;font-size:.72rem;margin-left:5px}
+.gallery-progress output[hidden]{display:none}
+.launch:disabled{opacity:.62;cursor:default}
+@media (orientation:landscape) and (max-height:530px){
+  .stage{height:max(157px,calc(100dvh - 191px))}
+  .modes{margin-bottom:5px}
+  .modes button{min-height:33px}
+}
+.kit button[aria-pressed="true"]:hover{background:#ffe0a5}
+.launch[data-state="waiting"]{filter:saturate(.55);opacity:.68}

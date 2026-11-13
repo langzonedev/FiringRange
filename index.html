@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#141916">
   <meta name="description" content="A free-play desert target gallery from Lang Systems Arcade.">
   <title>Firing Range · Lang Systems Arcade</title>
-  <link rel="stylesheet" href="./style.css?v=precision-view-1">
-  <script src="./game.js?v=precision-view-1" defer></script>
+  <link rel="stylesheet" href="./style.css?v=score-attack-1">
+  <script src="./game.js?v=score-attack-1" defer></script>
 </head>
 <body>
   <main>
@@ -22,6 +22,11 @@
       </div>
     </header>
 
+    <div class="modes" role="group" aria-label="Game mode">
+      <button type="button" id="free-mode" aria-pressed="true">Free play</button>
+      <button type="button" id="attack-mode" aria-pressed="false">Score attack</button>
+      <span id="challenge" hidden>12 launches · Clear all four target types for +200</span>
+    </div>
     <section class="game" aria-label="Firing Range game">
       <div class="stage" id="stage">
         <canvas id="scene" tabindex="0" aria-label="Range. Use the arrow keys to aim and Space to launch." aria-describedby="controls touch-guide"></canvas>
@@ -32,6 +37,7 @@
         <div class="gallery-progress">
           <span class="location">DRY CREEK · NIGHT GALLERY</span>
           <output id="variety" aria-label="Target types hit">Targets 0/4</output>
+          <output id="remaining" aria-label="Launches left" hidden></output>
           <output id="streak" aria-label="Consecutive hits">Streak 0</output>
         </div>
         <p class="touch-hint" id="touch-guide">Drag to aim · Tap Launch</p>

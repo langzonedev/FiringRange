@@ -34,6 +34,7 @@ const shots = [];
 const queued = [];
 const particles = [];
 const rings = [];
+const scoreLabels = [];
 let targets;
 let width = 1;
 let height = 1;
@@ -53,27 +54,73 @@ let touch = null;
 let mouse = null;
 let scoped = false;
 const scopeZoom = 2.4;
-let best = 0;
-try { best = Number(localStorage.getItem('firing-range-best')) || 0; } catch { /* Play remains available. */ }
-byId('best').textContent = best;
+const attackLimit = 12;
+let attack = false;
+let remaining = attackLimit;
+let pending = false;
+let attackRecord = 0;
+const bestKeys = { free: 'firing-range-best', attack: 'firing-range-attack-best' };
+const records = { free: 0, attack: 0 };
+try {
+  for (const mode of Object.keys(bestKeys)) records[mode] = Number(localStorage.getItem(bestKeys[mode])) || 0;
+} catch { /* Play remains available. */ }
+
+function modeKey() { return attack ? 'attack' : 'free'; }
+
+function showScore() {
+  byId('score').textContent = score;
+  const mode = modeKey();
+  if (score > records[mode]) {
+    records[mode] = score;
+    try { localStorage.setItem(bestKeys[mode], score); } catch { /* Play remains available. */ }
+  }
+  byId('best').textContent = records[mode];
+}
+
+function setMode(enabled) {
+  if (attack === enabled) return;
+  attack = enabled;
+  byId('free-mode').setAttribute('aria-pressed', String(!attack));
+  byId('attack-mode').setAttribute('aria-pressed', String(attack));
+  byId('challenge').hidden = !attack;
+  byId('remaining').hidden = !attack;
+  reset();
+  setScope(false);
+}
 
 function updateProgress() {
   byId('variety').textContent = targetTypes.size === 4 ? 'Gallery cleared' : 'Targets '+targetTypes.size+'/4';
   byId('streak').textContent = 'Streak '+streak;
+  byId('remaining').textContent = remaining+' left';
+  syncLaunch();
+}
+
+function syncLaunch() {
+  const button = byId('launch');
+  const complete = attack && remaining === 0 && !pending;
+  const waiting = !complete && (now < nextLaunch || pending);
+  button.disabled = complete || (attack && waiting);
+  const state = complete ? 'complete' : waiting ? 'waiting' : 'ready';
+  if (button.dataset.state !== state) button.dataset.state = state;
 }
 
 function reset() {
   score = 0;
   streak = 0;
+  remaining = attackLimit;
+  pending = false;
+  attackRecord = records.attack;
   targetTypes.clear();
   updateProgress();
   clearInput();
-  shots.length = queued.length = particles.length = rings.length = 0;
+  shots.length = queued.length = particles.length = rings.length = scoreLabels.length = 0;
   targets = setup.map((item) => ({ ...item, hit: -20, resetAt: 0 }));
-  byId('score').textContent = score;
+  showScore();
+  byId('reset').textContent = attack ? 'Restart run' : 'Reset range';
   byId('result').textContent = '';
   nextLaunch = 0;
   clearResultAt = 0;
+  syncLaunch();
 }
 reset();
 
@@ -108,6 +155,8 @@ for (const [index, model] of arsenal.entries()) {
 select(0);
 
 byId('reset').addEventListener('click', () => { reset(); setScope(false); });
+byId('free-mode').addEventListener('click', () => setMode(false));
+byId('attack-mode').addEventListener('click', () => setMode(true));
 byId('scope').addEventListener('click', () => setScope(!scoped));
 byId('sound').addEventListener('click', () => {
   sound = !sound;
@@ -197,11 +246,17 @@ window.addEventListener('blur', clearInput);
 byId('launch').addEventListener('click', launch);
 
 function launch() {
-  if (now < nextLaunch) return;
+  if (now < nextLaunch || (attack && (pending || remaining === 0))) return;
+  if (attack) {
+    remaining--;
+    pending = true;
+    updateProgress();
+  }
   const model = arsenal[selected];
   nextLaunch = now + model.gap;
+  syncLaunch();
   const count = model.scatter || model.burst || 1;
-  const group = { points: 0, remaining: count };
+  const group = { points: 0, remaining: count, clear: false };
   const origin = muzzle();
   const from = { x: origin.x / width, y: origin.y / height };
   for (let i = 0; i < count; i++) {
@@ -257,7 +312,9 @@ function impact(shot) {
     const centre = target.kind === 'plate' && Math.hypot(p.x - x, p.y - p.radius * .09 - y) <= p.radius * .31;
     const value = centre ? 100 : { plate: 25, disc: 65, glass: 40, pulse: 50 }[target.kind];
     feedback ||= centre ? 'Bullseye' : { plate: 'Steel', disc: 'Flying disc', glass: 'Glass', pulse: 'Pulse pod' }[target.kind];
+    const cleared = targetTypes.size === 4;
     targetTypes.add(target.kind);
+    if (!cleared && targetTypes.size === 4) shot.group.clear = true;
     target.hit = now;
     target.resetAt = now + (target.kind === 'plate' ? .18 : 2);
     pulse(p.x, p.y, target.kind === 'glass' ? '#deffff' : '#ffe6a3', p.radius * 1.5);
@@ -276,21 +333,33 @@ function impact(shot) {
   shot.group.remaining--;
   shot.group.points += points;
   if (feedback) shot.group.feedback = feedback;
-  if (points) {
+  if (points && !attack) {
     score += points;
-    byId('score').textContent = score;
-    if (score > best) {
-      best = score;
-      byId('best').textContent = best;
-      try { localStorage.setItem('firing-range-best', best); } catch { /* The session score still updates. */ }
+    showScore();
+  }
+  if (shot.group.remaining) return;
+
+  const hit = shot.group.points > 0;
+  streak = hit ? streak + 1 : 0;
+  const multiplier = attack && hit ? Math.min(streak, 3) : 1;
+  const bonus = attack && shot.group.clear ? 200 : 0;
+  const awarded = shot.group.points * multiplier + bonus;
+  let result = hit ? shot.group.feedback + ' +' + awarded : (shot.group.feedback ? shot.group.feedback+' · Miss' : 'Miss');
+  if (attack) {
+    score += awarded;
+    showScore();
+    if (multiplier > 1) result += ' · ×'+multiplier;
+    if (bonus) result += ' · Gallery bonus';
+    pending = false;
+    if (remaining === 0) {
+      byId('reset').textContent = 'Play again';
+      result = (score > attackRecord ? 'New best' : 'Run complete')+' · '+score+' points';
     }
   }
-  if (!shot.group.remaining) {
-    streak = shot.group.points ? streak + 1 : 0;
-    updateProgress();
-    byId('result').textContent = shot.group.points ? shot.group.feedback + ' +' + shot.group.points : (shot.group.feedback ? shot.group.feedback+' · Miss' : 'Miss');
-    clearResultAt = now + 1.35;
-  }
+  if (hit) scoreLabels.push({ x: shot.x, y: shot.y, value: awarded, multiplier, life: .85 });
+  updateProgress();
+  byId('result').textContent = result;
+  clearResultAt = attack && remaining === 0 ? 0 : now + 1.35;
 }
 
 function path(points, fill, context = ctx) {
@@ -593,9 +662,37 @@ function drawEffects(dt) {
   ctx.globalAlpha = 1;
 }
 
+function drawScoreLabels(dt) {
+  for (let i = scoreLabels.length - 1; i >= 0; i--) {
+    const label = scoreLabels[i];
+    label.life -= dt;
+    if (label.life <= 0) {
+      scoreLabels.splice(i, 1);
+      continue;
+    }
+    const zoom = scoped ? scopeZoom : 1;
+    const x = scoped ? width / 2 + (label.x - aim.x) * width * zoom : label.x * width;
+    const y = scoped ? height / 2 + (label.y - aim.y) * height * zoom : label.y * height;
+    if (scoped && Math.hypot(x-width/2, y-height/2) > Math.min(width,height)*.36) continue;
+    const rise = mutedMotion.matches ? 0 : (1 - label.life / .85) * 16;
+    ctx.globalAlpha = Math.min(1, label.life * 3);
+    ctx.font = 'bold 16px system-ui';
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = '#20172d';
+    ctx.lineWidth = 3;
+    ctx.fillStyle = label.multiplier > 1 ? '#ffd48e' : '#fff5df';
+    const text = '+'+label.value+(label.multiplier > 1 ? '  ×'+label.multiplier : '');
+    const labelX = clamp(x, 42, width - 42);
+    ctx.strokeText(text, labelX, y - 19 - rise);
+    ctx.fillText(text, labelX, y - 19 - rise);
+    ctx.globalAlpha = 1;
+  }
+}
+
 function animate(timestamp) {
   const dt = Math.min(.033, (timestamp - (lastFrame ?? timestamp)) / 1000);
   now += dt;
+  syncLaunch();
   lastFrame = timestamp;
   const aimStep = dt / (scoped ? scopeZoom : 1);
   if (keys.has('ArrowLeft')) aim.x = clamp(aim.x - aimStep * .29, .015, .985);
@@ -647,6 +744,7 @@ function animate(timestamp) {
     drawLauncher();
     drawReticle();
   }
+  drawScoreLabels(dt);
   if (clearResultAt && now > clearResultAt) {
     byId('result').textContent = '';
     clearResultAt = 0;
