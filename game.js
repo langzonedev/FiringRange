@@ -50,6 +50,9 @@ let clearResultAt = 0;
 let lastFrame;
 let aim = { x: .51, y: .48 };
 let touch = null;
+let mouse = null;
+let scoped = false;
+const scopeZoom = 2.4;
 let best = 0;
 try { best = Number(localStorage.getItem('firing-range-best')) || 0; } catch { /* Play remains available. */ }
 byId('best').textContent = best;
@@ -74,9 +77,17 @@ function reset() {
 }
 reset();
 
+function setScope(enabled) {
+  scoped = enabled && arsenal[selected].family === 'Precision';
+  byId('scope').setAttribute('aria-pressed', String(scoped));
+  byId('scope').textContent = scoped ? 'Exit scope' : 'Scope';
+}
+
 function select(index) {
   selected = index;
   const model = arsenal[index];
+  byId('scope').hidden = model.family !== 'Precision';
+  if (byId('scope').hidden) setScope(false);
   byId('category').textContent = model.family;
   byId('model').textContent = model.name;
   byId('profile').textContent = model.profile;
@@ -96,7 +107,8 @@ for (const [index, model] of arsenal.entries()) {
 }
 select(0);
 
-byId('reset').addEventListener('click', reset);
+byId('reset').addEventListener('click', () => { reset(); setScope(false); });
+byId('scope').addEventListener('click', () => setScope(!scoped));
 byId('sound').addEventListener('click', () => {
   sound = !sound;
   byId('sound').textContent = sound ? 'Sound on' : 'Sound off';
@@ -136,10 +148,16 @@ function clearInput() {
   if (active !== null && scene.hasPointerCapture(active)) scene.releasePointerCapture(active);
 }
 
+function steer(dx, dy, sensitivity) {
+  const gain = sensitivity / (scoped ? scopeZoom : 1);
+  aim.x = clamp(aim.x + dx / width * gain, .015, .985);
+  aim.y = clamp(aim.y + dy / height * gain, .06, .95);
+}
+scene.addEventListener('pointerleave', () => { mouse = null; });
 scene.addEventListener('pointerdown', (event) => {
   if (!event.isPrimary || event.button !== 0) return;
   if (event.pointerType === 'mouse') {
-    pointerAim(event);
+    if (!scoped) pointerAim(event);
     launch();
     return;
   }
@@ -148,12 +166,13 @@ scene.addEventListener('pointerdown', (event) => {
 });
 scene.addEventListener('pointermove', (event) => {
   if (event.pointerType === 'mouse') {
-    pointerAim(event);
+    if (!scoped) pointerAim(event);
+    else if (mouse) steer(event.clientX - mouse.x, event.clientY - mouse.y, 1);
+    mouse = { x: event.clientX, y: event.clientY };
     return;
   }
   if (event.pointerId !== touch?.id) return;
-  aim.x = clamp(aim.x + (event.clientX - touch.x) / width * 1.35, .015, .985);
-  aim.y = clamp(aim.y + (event.clientY - touch.y) / height * 1.35, .06, .95);
+  steer(event.clientX - touch.x, event.clientY - touch.y, 1.35);
   touch.x = event.clientX;
   touch.y = event.clientY;
 });
@@ -168,6 +187,8 @@ scene.addEventListener('keydown', (event) => {
     if (event.key === ' ' && !event.repeat) launch();
     else keys.add(event.key);
   }
+  if (!event.repeat && event.key.toLowerCase() === 'z') setScope(!scoped);
+  if (event.key === 'Escape') setScope(false);
   if (/^[1-6]$/.test(event.key)) select(Number(event.key) - 1);
 });
 window.addEventListener('keyup', (event) => keys.delete(event.key));
@@ -497,6 +518,26 @@ function drawReticle() {
   oval(x, y, 1.1, 1.1, colour);
 }
 
+function scopeFrame() {
+  const x = width / 2, y = height / 2;
+  const radius = Math.min(width, height) * .42;
+  ctx.beginPath();
+  ctx.rect(0, 0, width, height);
+  ctx.arc(x, y, radius, 0, tau);
+  ctx.fillStyle = '#100d1af7';
+  ctx.fill('evenodd');
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, tau);
+  ctx.strokeStyle = '#ad91aa';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  for (const sign of [-1, 1]) {
+    line(x + sign * 7, y, x + sign * radius * .75, y, '#ffdfb4', 1);
+    line(x, y + sign * 7, x, y + sign * radius * .75, '#ffdfb4', 1);
+  }
+  oval(x, y, 1.4, 1.4, '#fff0c9');
+}
+
 function drawEffects(dt) {
   for (let i = rings.length - 1; i >= 0; i--) {
     const ring = rings[i];
@@ -556,10 +597,19 @@ function animate(timestamp) {
   const dt = Math.min(.033, (timestamp - (lastFrame ?? timestamp)) / 1000);
   now += dt;
   lastFrame = timestamp;
-  if (keys.has('ArrowLeft')) aim.x = clamp(aim.x - dt * .29, .015, .985);
-  if (keys.has('ArrowRight')) aim.x = clamp(aim.x + dt * .29, .015, .985);
-  if (keys.has('ArrowUp')) aim.y = clamp(aim.y - dt * .43, .06, .95);
-  if (keys.has('ArrowDown')) aim.y = clamp(aim.y + dt * .43, .06, .95);
+  const aimStep = dt / (scoped ? scopeZoom : 1);
+  if (keys.has('ArrowLeft')) aim.x = clamp(aim.x - aimStep * .29, .015, .985);
+  if (keys.has('ArrowRight')) aim.x = clamp(aim.x + aimStep * .29, .015, .985);
+  if (keys.has('ArrowUp')) aim.y = clamp(aim.y - aimStep * .43, .06, .95);
+  if (keys.has('ArrowDown')) aim.y = clamp(aim.y + aimStep * .43, .06, .95);
+  ctx.fillStyle = '#282037';
+  ctx.fillRect(0, 0, width, height);
+  ctx.save();
+  if (scoped) {
+    ctx.translate(width / 2, height / 2);
+    ctx.scale(scopeZoom, scopeZoom);
+    ctx.translate(-aim.x * width, -aim.y * height);
+  }
   ctx.drawImage(background, 0, 0, width, height);
   for (const target of [...targets].sort((first, second) => first.y - second.y)) drawTarget(target);
 
@@ -591,8 +641,12 @@ function animate(timestamp) {
     }
   }
   drawEffects(dt);
-  drawLauncher();
-  drawReticle();
+  ctx.restore();
+  if (scoped) scopeFrame();
+  else {
+    drawLauncher();
+    drawReticle();
+  }
   if (clearResultAt && now > clearResultAt) {
     byId('result').textContent = '';
     clearResultAt = 0;

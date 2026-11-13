@@ -159,3 +159,19 @@ body{background:radial-gradient(ellipse at 50% 0,#35283f,#181524 75%);min-height
 @media(orientation:landscape) and (max-height:530px){
   .gallery-progress{top:34px;right:9px}
 }
+.scope {
+  position:absolute;
+  right:16px;
+  bottom:71px;
+  min-height:44px;
+  padding:0 12px;
+  border:1px solid #bd9cae;
+  border-radius:8px;
+  background:#251d32f2;
+  color:#ffe7c3;
+  font-weight:700;
+  font-size:.82rem;
+  cursor:pointer;
+}
+.scope[aria-pressed="true"]{background:#ffe0ae;color:#23182d}
+@media(max-width:660px){.scope{right:9px;bottom:63px}}

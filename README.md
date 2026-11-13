@@ -9,6 +9,7 @@ A relaxed browser target gallery set under the lights at Dry Creek, built for La
 - Mouse: point and click in the range.
 - Touch: drag anywhere on the range to steer the launcher, then use **Launch**.
 - Keyboard: focus the range, use the arrow keys to aim and press Space to launch. Keys 1–6 select a launcher while the range is focused.
+- Precision: tap **Scope** or press **Z** while the range is focused. Drag or move to steer the zoomed view. Tap again or press Escape to exit.
 - Choose a launcher from the tray. Sound starts off. **Reset range** restores the targets and clears the current score. The best score is stored in the browser.
 
 The six fictional launchers send coloured pulses with distinct patterns. Hit the centre of a steel plate for a 100-point bullseye. Flying discs, glass panes and pulse pods have their own scores and reactions. Glass, discs and pods return after a short pause. Hit all four target types to clear the gallery. Consecutive scoring launches build a streak, and a miss breaks it. There is no timer.

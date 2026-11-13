@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#141916">
   <meta name="description" content="A free-play desert target gallery from Lang Systems Arcade.">
   <title>Firing Range · Lang Systems Arcade</title>
-  <link rel="stylesheet" href="./style.css?v=pov-aim-1">
-  <script src="./game.js?v=pov-aim-1" defer></script>
+  <link rel="stylesheet" href="./style.css?v=precision-view-1">
+  <script src="./game.js?v=precision-view-1" defer></script>
 </head>
 <body>
   <main>
@@ -36,6 +36,7 @@
         </div>
         <p class="touch-hint" id="touch-guide">Drag to aim · Tap Launch</p>
         <output id="result" class="result" aria-live="polite"></output>
+        <button type="button" id="scope" class="scope" aria-pressed="false" hidden>Scope</button>
         <button type="button" id="launch" class="launch"><span aria-hidden="true">◎</span> Launch</button>
       </div>
 
@@ -48,7 +49,7 @@
       </div>
     </section>
     <p id="controls" class="controls">
-      <span class="desktop-controls">Point to aim · Click to launch · Arrow keys and Space also work</span>
+      <span class="desktop-controls">Point to aim · Click to launch · Arrow keys and Space · Z toggles Precision scope</span>
       <span id="profile"></span>
     </p>
   </main>
