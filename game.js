@@ -40,6 +40,8 @@ let height = 1;
 let scale = 1;
 let selected = 0;
 let score = 0;
+let streak = 0;
+const targetTypes = new Set();
 let sound = false;
 let audio;
 let now = 0;
@@ -52,8 +54,16 @@ let best = 0;
 try { best = Number(localStorage.getItem('firing-range-best')) || 0; } catch { /* Play remains available. */ }
 byId('best').textContent = best;
 
+function updateProgress() {
+  byId('variety').textContent = targetTypes.size === 4 ? 'Gallery cleared' : 'Targets '+targetTypes.size+'/4';
+  byId('streak').textContent = 'Streak '+streak;
+}
+
 function reset() {
   score = 0;
+  streak = 0;
+  targetTypes.clear();
+  updateProgress();
   clearInput();
   shots.length = queued.length = particles.length = rings.length = 0;
   targets = setup.map((item) => ({ ...item, hit: -20, resetAt: 0 }));
@@ -162,6 +172,8 @@ function launch() {
   nextLaunch = now + model.gap;
   const count = model.scatter || model.burst || 1;
   const group = { points: 0, remaining: count };
+  const origin = muzzle();
+  const from = { x: origin.x / width, y: origin.y / height };
   for (let i = 0; i < count; i++) {
     const offset = i - (count - 1) / 2;
     const spread = model.scatter ? .045 : .009;
@@ -169,6 +181,7 @@ function launch() {
       at: now + (model.burst ? i * .075 : 0),
       group,
       model,
+      from,
       x: clamp(aim.x + offset * spread, .01, .99),
       y: clamp(aim.y + Math.abs(offset) * (model.scatter ? .017 : .004), .03, .97),
     });
@@ -214,6 +227,7 @@ function impact(shot) {
     const centre = target.kind === 'plate' && Math.hypot(p.x - x, p.y - p.radius * .09 - y) <= p.radius * .31;
     const value = centre ? 100 : { plate: 25, disc: 65, glass: 40, pulse: 50 }[target.kind];
     feedback ||= centre ? 'Bullseye' : { plate: 'Steel', disc: 'Flying disc', glass: 'Glass', pulse: 'Pulse pod' }[target.kind];
+    targetTypes.add(target.kind);
     target.hit = now;
     target.resetAt = now + (target.kind === 'plate' ? .18 : 2);
     pulse(p.x, p.y, target.kind === 'glass' ? '#deffff' : '#ffe6a3', p.radius * 1.5);
@@ -234,6 +248,8 @@ function impact(shot) {
     }
   }
   if (!shot.group.remaining) {
+    streak = shot.group.points ? streak + 1 : 0;
+    updateProgress();
     byId('result').textContent = shot.group.points ? shot.group.feedback + ' +' + shot.group.points : 'Miss';
     clearResultAt = now + 1.35;
   }
@@ -275,25 +291,25 @@ function landscape() {
   const random = seeded(231);
   const horizon = height * .435;
   const grade = sky.createLinearGradient(0, 0, 0, horizon * 1.35);
-  grade.addColorStop(0, '#6d9f9c');
-  grade.addColorStop(.63, '#b8cfaf');
-  grade.addColorStop(1, '#eddeb5');
+  grade.addColorStop(0, '#211d3b');
+  grade.addColorStop(.63, '#69405c');
+  grade.addColorStop(1, '#bd7963');
   sky.fillStyle = grade;
   sky.fillRect(0, 0, width, height);
   const sunX = width * .78;
   const sunY = height * .16;
   const glow = sky.createRadialGradient(sunX, sunY, 4, sunX, sunY, height * .23);
-  glow.addColorStop(0, '#fff0b8a8');
-  glow.addColorStop(1, '#fff0b800');
+  glow.addColorStop(0, '#fca57d69');
+  glow.addColorStop(1, '#fca57d00');
   sky.fillStyle = glow;
   sky.fillRect(0, 0, width, height);
-  oval(sunX, sunY, height * .047, height * .047, '#fff0b8da', sky);
+  oval(sunX, sunY, height * .047, height * .047, '#ffd6a8da', sky);
   for (let i = 0; i < 12; i++) {
     const x = random() * width;
     const y = (.09 + random() * .22) * height;
     oval(x, y, (38 + random() * 100) * scale, (1.5 + random() * 4) * scale, '#f7f6d83b', sky);
   }
-  for (const [index, colour] of ['#a7ad8b', '#858f70', '#667757'].entries()) {
+  for (const [index, colour] of ['#615169', '#494052', '#332d42'].entries()) {
     const ridge = [[0, height]];
     for (let i = 0; i <= 30; i++) {
       const high = Math.sin(i * .27 + index) * .043 + Math.cos(i * .63 + index) * .03;
@@ -302,10 +318,20 @@ function landscape() {
     ridge.push([width, height]);
     path(ridge, colour, sky);
   }
+  for (const x of [width * .045, width * .955]) {
+    const top = height * .22;
+    const base = horizon + 32 * scale;
+    line(x, top, x, base, '#322938', 4 * scale, sky);
+    const light = sky.createRadialGradient(x, top, 1, x, top, 33 * scale);
+    light.addColorStop(0, '#ffd9a5aa');
+    light.addColorStop(1, '#ffd9a500');
+    oval(x, top, 33 * scale, 33 * scale, light, sky);
+    line(x - 8 * scale, top, x + 8 * scale, top, '#ffe5be', 3 * scale, sky);
+  }
   const sand = sky.createLinearGradient(0, horizon, 0, height);
-  sand.addColorStop(0, '#bba47b');
-  sand.addColorStop(.48, '#ceaa75');
-  sand.addColorStop(1, '#89684b');
+  sand.addColorStop(0, '#735359');
+  sand.addColorStop(.48, '#90614e');
+  sand.addColorStop(1, '#413440');
   path([[0, horizon * 1.06], [width * .5, horizon * .99], [width, horizon * 1.11], [width, height], [0, height]], sand, sky);
 
   for (let i = 0; i < 2700; i++) {
@@ -499,8 +525,7 @@ function animate(timestamp) {
   for (let i = queued.length - 1; i >= 0; i--) {
     const launch = queued[i];
     if (now < launch.at) continue;
-    const start = muzzle();
-    const from = { x: start.x / width, y: start.y / height };
+    const { from } = launch;
     const distance = Math.hypot(launch.x - from.x, launch.y - from.y);
     const duration = Math.max(.065, distance / launch.model.speed);
     shots.push({ ...launch, from, elapsed: 0, duration });

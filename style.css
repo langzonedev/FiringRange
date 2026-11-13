@@ -145,3 +145,17 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
   .selection { display: flex; padding-bottom: 4px; }
   .kit { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+:root{background:#181524;--accent:#ffcf94;--dim:#cbc0d6}
+body{background:radial-gradient(ellipse at 50% 0,#35283f,#181524 75%);min-height:100dvh}
+.game{border-color:#72596e;background:#252033}
+.tray{border-top-color:#72596e}
+.kit button{background:#30273e;border-color:#665672}
+.kit button:hover{background:#463552}
+.gallery-progress{position:absolute;top:16px;right:16px;display:flex;flex-wrap:wrap;justify-content:end;gap:4px;max-width:50%;pointer-events:none}
+.gallery-progress .location{position:static;width:100%;text-align:right;color:#ffe8cb;font-size:9px}
+.gallery-progress output{background:#20172de8;color:#f9e4c8;border:1px solid #9b799b;border-radius:5px;padding:3px 6px;font-size:10px;font-weight:720;white-space:nowrap}
+@media(max-width:660px){.gallery-progress{top:9px;right:9px}}
+@media(orientation:landscape) and (max-height:530px){
+  .gallery-progress{top:34px;right:9px}
+}
