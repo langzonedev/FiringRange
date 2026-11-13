@@ -49,7 +49,7 @@ let nextLaunch = 0;
 let clearResultAt = 0;
 let lastFrame;
 let aim = { x: .51, y: .48 };
-let touchId = null;
+let touch = null;
 let best = 0;
 try { best = Number(localStorage.getItem('firing-range-best')) || 0; } catch { /* Play remains available. */ }
 byId('best').textContent = best;
@@ -131,26 +131,35 @@ function pointerAim(event) {
 
 function clearInput() {
   keys.clear();
-  const active = touchId;
-  touchId = null;
+  const active = touch?.id ?? null;
+  touch = null;
   if (active !== null && scene.hasPointerCapture(active)) scene.releasePointerCapture(active);
 }
 
 scene.addEventListener('pointerdown', (event) => {
   if (!event.isPrimary || event.button !== 0) return;
-  pointerAim(event);
-  if (event.pointerType === 'mouse') launch();
-  else {
-    touchId = event.pointerId;
-    scene.setPointerCapture(touchId);
+  if (event.pointerType === 'mouse') {
+    pointerAim(event);
+    launch();
+    return;
   }
+  touch = { id: event.pointerId, x: event.clientX, y: event.clientY };
+  scene.setPointerCapture(touch.id);
 });
 scene.addEventListener('pointermove', (event) => {
-  if (event.pointerType === 'mouse' || event.pointerId === touchId) pointerAim(event);
+  if (event.pointerType === 'mouse') {
+    pointerAim(event);
+    return;
+  }
+  if (event.pointerId !== touch?.id) return;
+  aim.x = clamp(aim.x + (event.clientX - touch.x) / width * 1.35, .015, .985);
+  aim.y = clamp(aim.y + (event.clientY - touch.y) / height * 1.35, .06, .95);
+  touch.x = event.clientX;
+  touch.y = event.clientY;
 });
 for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) {
   scene.addEventListener(event, (pointer) => {
-    if (pointer.pointerId === touchId) clearInput();
+    if (pointer.pointerId === touch?.id) clearInput();
   });
 }
 scene.addEventListener('keydown', (event) => {
@@ -234,7 +243,15 @@ function impact(shot) {
     tone(centre ? 880 : 600, .15, .065, true);
     points += value;
   }
-  if (splash || !points) pulse(x, y, shot.model.ink, splash || 13 * scale);
+  if (splash) {
+    const lob = Boolean(shot.model.arc);
+    const size = splash * (lob ? 1.22 : 1.35);
+    rings.push({ x, y, colour: shot.model.ink, size, life: lob ? .66 : .45, burst: lob ? 'orb' : 'spark' });
+    tone(lob ? 185 : 116, lob ? .26 : .18, .085);
+    feedback ||= lob ? 'Orb burst' : 'Rocket burst';
+  } else if (!points) {
+    pulse(x, y, shot.model.ink, 13 * scale);
+  }
   shot.group.remaining--;
   shot.group.points += points;
   if (feedback) shot.group.feedback = feedback;
@@ -250,7 +267,7 @@ function impact(shot) {
   if (!shot.group.remaining) {
     streak = shot.group.points ? streak + 1 : 0;
     updateProgress();
-    byId('result').textContent = shot.group.points ? shot.group.feedback + ' +' + shot.group.points : 'Miss';
+    byId('result').textContent = shot.group.points ? shot.group.feedback + ' +' + shot.group.points : (shot.group.feedback ? shot.group.feedback+' · Miss' : 'Miss');
     clearResultAt = now + 1.35;
   }
 }
@@ -486,6 +503,30 @@ function drawEffects(dt) {
     ring.life -= dt;
     if (ring.life <= 0) {
       rings.splice(i, 1);
+      continue;
+    }
+    if (ring.burst) {
+      const duration = ring.burst === 'orb' ? .66 : .45;
+      const progress = 1 - ring.life / duration;
+      const radius = ring.size * (.18 + progress * .82);
+      ctx.globalAlpha = .55 * (1 - progress);
+      oval(ring.x, ring.y, radius, radius * .78, ring.colour);
+      if (!mutedMotion.matches) {
+        ctx.globalAlpha = .8 * (1 - progress);
+        if (ring.burst === 'orb') {
+          for (let i = 0; i < 8; i++) {
+            const angle = i * tau / 8;
+            oval(ring.x + Math.cos(angle) * radius, ring.y + Math.sin(angle) * radius * .78,
+              3 * scale, 3 * scale, '#f8dcff');
+          }
+        } else {
+          for (let i = 0; i < 10; i++) {
+            const angle = i * tau / 10;
+            line(ring.x + Math.cos(angle) * radius * .48, ring.y + Math.sin(angle) * radius * .48,
+              ring.x + Math.cos(angle) * radius, ring.y + Math.sin(angle) * radius, '#ffe0a3', 2 * scale);
+          }
+        }
+      }
       continue;
     }
     ctx.globalAlpha = ring.life / .43;
